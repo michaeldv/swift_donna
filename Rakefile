@@ -1,41 +1,51 @@
-directory "Build"
 
-desc "Build the Donna module"
-task :donna => "Build/libDonna.a"
+SOURCE = "SwiftDonna"
+TESTS = "#{SOURCE}Tests"
+BUILD = "Build"
+FRAMEWORKS = `xcode-select --print-path`.chop + "/Platforms/MacOSX.platform/Developer/Library/Frameworks"
+EXECUTABLE = "Swift Donna"
+TEST_EXECUTABLE = EXECUTABLE + " Tests"
 
-file "Build/libDonna.a" => FileList["Build", "Source/*.swift"] do |t|
-  sources = Dir["Source/*.swift"].join(" ")
-  module_name = t.name.pathmap("%{lib,}n")
+directory BUILD
+
+file "#{BUILD}/libDonna.a" => FileList[BUILD, "#{SOURCE}/*.swift"] do |t|
+  sources = Dir["#{SOURCE}/*.swift"].join(" ")
+  library = t.name.pathmap("%{lib,}n")
   sh "xcrun -sdk macosx swiftc " \
      "-emit-library -o #{t.name} " \
-     "-emit-module -emit-module-path Build/#{module_name}.swiftmodule " \
-     "-module-name #{module_name} " \
+     "-emit-module -emit-module-path #{BUILD}/#{library}.swiftmodule " \
+     "-module-name #{library} " \
      "#{sources}"
 end
 
-desc "Build the main program"
-file "main" => ["main.swift", "Build/libDonna.a"] do |t|
-  sh "xcrun -sdk macosx swiftc -o 'Swift Donna' -IBuild -LBuild -lDonna #{t.name}.swift"
+desc "Build #{EXECUTABLE} executable"
+file "main" => ["main.swift", "#{BUILD}/libDonna.a"] do |t|
+  sh "xcrun -sdk macosx swiftc -o '#{EXECUTABLE}' -I#{BUILD} -L#{BUILD} -lDonna #{t.name}.swift"
 end
 
-file "Build/Swift Donna Tests" => FileList["Build/libDonna.a", "Tests/*.swift"] do |t|
-  sources = Dir["Tests/*.swift"].join(" ")
+file "#{BUILD}/#{TEST_EXECUTABLE}" => FileList["#{BUILD}/libDonna.a", "#{TESTS}/*.swift"] do |t|
+  sources = Dir["#{TESTS}/*.swift"].join(" ")
   sh "xcrun -sdk macosx swiftc " \
      "-o '#{t.name}' " \
-     "-F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks " \
-     "-Xlinker -rpath -Xlinker /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks " \
-     "-IBuild -LBuild -lDonna " \
+     "-F #{FRAMEWORKS} " \
+     "-Xlinker -rpath -Xlinker #{FRAMEWORKS} " \
+     "-I#{BUILD} -L#{BUILD} -lDonna -lswiftStdlibUnittest " \
      "#{sources}"
 end
 
-desc "Build and run the tests"
-task :test => "Build/Swift Donna Tests" do |t|
-  sh "xcrun xctest 'Build/Swift Donna Tests'"
+desc "Build #{EXECUTABLE} library module"
+task :lib => "#{BUILD}/libDonna.a"
+
+desc "Build and run #{TEST_EXECUTABLE}"
+task :test => "#{BUILD}/#{TEST_EXECUTABLE}" do |t|
+  sh "xcrun xctest '#{BUILD}/#{TEST_EXECUTABLE}'" do |ok, status|
+    puts ok ? "PASS" : "FAIL"
+  end
 end
 
-desc "Clean build products"
+desc "Clean up build artifacts"
 task :clean do
-  rm_rf "Build"
+  rm_rf BUILD
 end
 
 task :default => "main"

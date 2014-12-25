@@ -8,6 +8,8 @@
 
 import Donna
 
+initialize()
+
 let zero: Bitmask = 0
 let nonzero: Bitmask = 42
 
